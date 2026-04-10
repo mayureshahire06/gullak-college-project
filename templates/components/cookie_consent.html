@@ -1,0 +1,49 @@
+{% load i18n %}
+<div id="cookie-consent-banner" class="fixed-bottom bg-dark text-white p-3 shadow-lg d-none" style="z-index: 9999; border-top: 1px solid rgba(255,255,255,0.1);">
+    <div class="container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+        <div class="text-center text-md-start">
+            <p class="mb-0 small">
+                {% trans "We use cookies to improve your experience and analyze site traffic." %} 
+                {% trans "By clicking \"Accept\", you verify that you are comfortable with us using tracking cookies." %}
+                <a href="{% url 'privacy-policy' %}" class="text-white text-decoration-underline">{% trans "Privacy Policy" %}</a>.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button id="btn-decline-cookies" class="btn btn-sm btn-outline-light px-4">{% trans "Decline" %}</button>
+            <button id="btn-accept-cookies" class="btn btn-sm btn-primary px-4">{% trans "Accept" %}</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const consent = localStorage.getItem('cookieConsent');
+        const banner = document.getElementById('cookie-consent-banner');
+        
+        // Show banner if no choice made
+        if (!consent) {
+            banner.classList.remove('d-none');
+        }
+
+        document.getElementById('btn-accept-cookies').addEventListener('click', function() {
+            // Show loader
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Accepting...';
+            
+            localStorage.setItem('cookieConsent', 'accepted');
+            
+            // Reload to ensure a fresh "Granted" page load for the scanner
+            setTimeout(() => {
+                window.location.reload();
+            }, 500); // Small delay to let user see the interaction
+        });
+
+        // Handle Decline
+        document.getElementById('btn-decline-cookies').addEventListener('click', function() {
+            localStorage.setItem('cookieConsent', 'declined');
+            // Default is already denied, so just hide banner
+            banner.classList.add('d-none');
+        });
+    });
+</script>

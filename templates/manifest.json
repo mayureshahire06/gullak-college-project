@@ -1,0 +1,24 @@
+{% load static %}
+{
+  "name": "TrackMyRupee",
+  "short_name": "TrackMyRupee",
+  "description": "Precision rupee tracking and budgeting dashboard.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111315",
+  "theme_color": "#2d6a4f",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "{% static 'img/pwa-icon-512.png' %}",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "{% static 'img/pwa-icon-512.png' %}",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

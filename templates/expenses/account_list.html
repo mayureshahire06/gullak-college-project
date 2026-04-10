@@ -1,0 +1,128 @@
+{% extends 'expenses/settings_base.html' %}
+{% load i18n digit_filters %}
+
+{% block settings_content %}
+<div class="fade-in">
+    <div class="pt-1 pb-3 mb-2">
+        <div class="d-flex align-items-center justify-content-between gap-3 mb-1">
+            <div class="d-flex align-items-center gap-2">
+                <h2 class="h4 mb-0 fw-bold">{% trans "Accounts" %}</h2>
+                <button class="btn btn-outline-secondary rounded-circle p-0 d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; min-width: 24px; line-height: 1;" data-bs-toggle="collapse" data-bs-target="#guideAccounts" aria-expanded="false" title="{% trans 'How it works' %}">
+                    <i class="bi bi-info-lg" style="font-size: 0.7rem;"></i>
+                </button>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'transfer-list' %}" class="btn btn-outline-primary btn-sm px-2 px-sm-3 d-flex align-items-center shadow-sm" style="border-radius: 8px;">
+                    <i class="bi bi-arrow-left-right me-1"></i> <span class="small">{% trans "History" %}</span>
+                </a>
+                <a href="{% url 'account-create' %}" class="btn btn-primary btn-sm px-2 px-sm-3 d-flex align-items-center shadow-sm" style="border-radius: 8px;">
+                    <i class="bi bi-plus-lg me-1"></i> <span class="small">{% trans "Add" %}</span>
+                </a>
+            </div>
+        </div>
+        <p class="text-muted small mb-3">{% trans "Manage your wallets, bank accounts, and investment portfolios" %}</p>
+    </div>
+
+    <!-- Filter Form -->
+    <div class="mb-4">
+        <form method="get" class="d-flex align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-center">
+                <span class="fw-bold text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.75rem;">
+                    <i class="bi bi-filter-left me-1"></i>{% trans "Filter" %}
+                </span>
+            </div>
+            <div style="min-width: 180px;">
+                <select name="type" class="form-select" style="border-radius: 12px; cursor: pointer; transition: all 0.2s;" onchange="this.form.submit()">
+                    <option value="">{% trans "All" %}</option>
+                    {% for val, label in account_types %}
+                        <option value="{{ val }}" {% if selected_type == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if selected_type %}
+            <div class="d-flex align-items-center">
+                <a href="{% url 'account-list' %}" class="btn btn-sm border-0 text-decoration-none text-muted d-flex align-items-center px-2 py-1" style="border-radius: 10px; font-size: 0.85rem;">
+                    <i class="bi bi-x-circle me-1 text-danger"></i>{% trans "Clear" %}
+                </a>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+
+    {% include 'partials/guide_accounts.html' %}
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0 text-start align-middle">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">{% trans "Account Name" %}</th>
+                            <th>{% trans "Type" %}</th>
+                            <th class="text-end">{% trans "Balance" %}</th>
+                            <th class="text-end pe-4">{% trans "Actions" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for account in accounts %}
+                        <tr>
+                            <td class="ps-4 py-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="flex-shrink-0 bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                                        {% if account.account_type == 'CASH' %}
+                                            <i class="bi bi-cash-stack fs-5"></i>
+                                        {% elif account.account_type == 'BANK' %}
+                                            <i class="bi bi-bank fs-5"></i>
+                                        {% elif account.account_type == 'INVESTMENT' or account.account_type == 'FIXED_DEPOSIT' %}
+                                            <i class="bi bi-graph-up-arrow fs-5"></i>
+                                        {% elif account.account_type == 'CREDIT_CARD' %}
+                                            <i class="bi bi-credit-card fs-5"></i>
+                                        {% else %}
+                                            <i class="bi bi-wallet2 fs-5"></i>
+                                        {% endif %}
+                                    </div>
+                                    <a href="{% url 'account-detail' account.pk %}" class="fw-bold text-decoration-none hover-link text-body lh-sm">{{ account.name }}</a>
+                                </div>
+                            </td>
+                            <td class="py-3">
+                                <span class="badge badge-soft badge-soft-primary small">
+                                     {{ account.get_account_type_display }}
+                                 </span>
+                            </td>
+                            <td class="text-end fw-bold {% if account.balance < 0 %}text-danger{% else %}text-success{% endif %}">
+                                {{ account.currency }}{{ account.balance|ind_comma:account.currency|translate_digits }}
+                            </td>
+                            <td class="text-end pe-4 text-nowrap">
+                                <div class="hstack gap-3 justify-content-end">
+                                    <a href="{% url 'account-edit' account.pk %}" class="btn btn-sm btn-link text-decoration-none p-0 d-inline-flex align-items-center" title="{% trans 'Edit' %}">
+                                        <i class="bi bi-pencil-square text-primary fs-6"></i>
+                                    </a>
+                                    <a href="{% url 'account-delete' account.pk %}" class="btn btn-sm btn-link text-decoration-none p-0 delete-btn d-inline-flex align-items-center" title="{% trans 'Delete' %}">
+                                        <i class="bi bi-trash text-danger fs-6"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5">
+                                <div class="py-4">
+                                    <div class="mb-4">
+                                        {% include 'illustrations/empty_accounts.svg' %}
+                                    </div>
+                                    <h4 class="fw-bold text-muted">{% trans "No Accounts Yet" %}</h4>
+                                    <p class="text-muted mb-4">{% trans "Track your balances across different bank accounts and wallets." %}</p>
+                                    <a href="{% url 'account-create' %}" class="btn btn-primary">
+                                        <i class="bi bi-plus-lg me-1"></i> {% trans "Add Account" %}
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "account/email/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Confirm E-mail Address" %}{% endblock %}
+
+{% block content %}
+    <h2>{% trans "Welcome aboard!" %}</h2>
+    
+    <p>{% blocktrans with user.username as username %}Hi <strong>{{ username }}</strong>,<br>Thank you for joining. We're excited to help you take control of your finances!{% endblocktrans %}</p>
+    
+    <p>{% trans "To get started, please confirm your email address:" %}</p>
+    
+    <div style="margin: 35px 0;">
+        <a href="{{ activate_url }}" class="btn btn-primary">
+            {% trans "Confirm Email Address" %}
+        </a>
+    </div>
+    
+    <p style="font-size: 13px; color: #718096; margin-bottom: 0;">
+        {% trans "Button not working? Copy this link:" %}<br>
+        <a href="{{ activate_url }}" style="color: #219EBC; word-break: break-all;">{{ activate_url }}</a>
+    </p>
+{% endblock %}

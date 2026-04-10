@@ -1,0 +1,1088 @@
+{% extends 'base.html' %}
+{% load i18n expense_extras static %}
+
+{% block content %}
+<style>
+    .border-teal { border-color: #1D9E75 !important; }
+    .text-teal { color: #1D9E75 !important; }
+    .btn-outline-teal { color: #1D9E75; border-color: #1D9E75; }
+    .btn-outline-teal:hover { background-color: #1D9E75; color: white; }
+    
+    .nav-pills-custom .nav-link {
+        color: #6c757d;
+        font-weight: 600;
+        border-radius: 50rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+    
+    .nav-pills-custom .nav-link:hover:not(.active) {
+        color: #1D9E75;
+    }
+    
+    .nav-pills-custom .nav-link.active {
+        background-color: #1D9E75 !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 8px rgba(29, 158, 117, 0.3);
+    }
+
+    .btn-teal { background-color: #1D9E75; color: white; border: none; }
+    .btn-teal:hover { background-color: #168a65; color: white; }
+    
+    .parse-highlight {
+        animation: highlight-pulse 1.5s ease;
+    }
+    
+    @keyframes highlight-pulse {
+        0% { background-color: rgba(29, 158, 117, 0.2); }
+        100% { background-color: transparent; }
+    }
+    
+    .suggestion-chip {
+        padding: 5px 12px;
+        border-radius: 20px;
+        background-color: rgba(0,0,0,0.03);
+        border: 1px solid rgba(0,0,0,0.08);
+        font-size: 0.75rem;
+        color: #666;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    [data-bs-theme="dark"] .suggestion-chip {
+        background-color: rgba(255,255,255,0.05);
+        color: #aaa;
+    }
+    
+    .suggestion-chip:hover {
+        background-color: rgba(29, 158, 117, 0.1);
+        border-color: #1D9E75;
+        color: #1D9E75;
+    }
+    
+    #nl-input {
+        font-size: 0.95rem;
+    }
+
+    #nl-input:focus {
+        box-shadow: 0 0 0 0.25rem rgba(29, 158, 117, 0.1);
+    }
+    
+    .preview-label {
+        font-size: 0.6rem;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+    
+    .quick-add-btn {
+        font-size: 0.9rem;
+    }
+</style>
+<div class="row justify-content-center ">
+    <div class="col-md-6">
+        <div>
+            <div class="mb-4">
+                <div class="d-flex align-items-center">
+                    <h4 class="card-title mb-0 h5 fw-bold">
+                        {% if object %}{% trans "Edit Expense" %}{% else %}{% trans "New Expense" %}{% endif %}
+                    </h4>
+                    <button type="button" class="btn btn-outline-primary btn-sm ms-auto" id="header-add-category-btn"
+                            title="{% trans 'Add New Category' %}" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                        <i class="bi bi-plus-lg me-1"></i> {% trans "New Category" %}
+                    </button>
+                </div>
+            </div>
+            
+            {% if not object and formset %}
+            <div id="quick-add-section" class="mb-4">
+                <label class="form-label mb-2 text-muted d-flex align-items-center justify-content-between">
+                    {% trans "Quick Add" %}
+                    <span class="badge rounded-pill bg-light text-teal border fw-normal" style="font-size: 0.65rem;">
+                        <i class="bi bi-magic me-1"></i> {% trans "Auto-fills form below" %}
+                    </span>
+                </label>
+                <div class="position-relative">
+                    <textarea id="nl-input" class="form-control border-1 rounded-4 py-3 px-4" 
+                        rows="2" placeholder="{% trans 'What did you spend on?' %}" style="resize: none; border-color: rgba(29, 158, 117, 0.2) !important;" autofocus></textarea>
+                    <div class="position-absolute bottom-0 end-0 p-3">
+                        <button type="button" id="btn-parse" class="btn btn-teal btn-sm rounded-pill px-3 fw-bold">
+                            {% trans "Go" %}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Suggestions -->
+                <div class="d-flex flex-wrap gap-2 mt-3 justify-content-start">
+                    <span class="text-muted small">Example: </span>
+                    <span class="badge border suggestion-chip" onclick="fillNl('swiggy 320')">swiggy 320</span>
+                    <span class="badge border suggestion-chip" onclick="fillNl('₹850 uber')">₹850 uber</span>
+                    <span class="badge border suggestion-chip" onclick="fillNl('2k groceries')">2k groceries</span>
+                </div>
+
+                <div class="d-flex align-items-center my-2">
+                    <hr class="flex-grow-1 border-top" style="opacity: 0.9;">
+                    <span class="mx-3 text-muted small fw-bold" style="letter-spacing: 1px;">OR</span>
+                    <hr class="flex-grow-1 border-top" style="opacity: 0.9;">
+                </div>
+            </div>
+            {% endif %}
+                    
+
+            <div id="manual-form-container">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if formset %}
+                        {{ formset.management_form }}
+                        <div id="formset-container" data-user-currency="{{ request.user.profile.currency }}">
+                            {% for form in formset %}
+                            <div class="form-card form-row">
+                                {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                                
+                                <!-- Primary: Amount & Category (hero row) -->
+                                <div class="row mb-3">
+                                    <div class="col-5">
+                                        <label class="form-label fw-semibold">{% trans "Amount" %}</label>
+                                        <input type="number" name="{{ form.amount.html_name }}" class="form-control form-control-lg expense-amount-input" 
+                                            value="{{ form.amount.value|default:'' }}" required id="{{ form.amount.id_for_label }}" step="0.01" placeholder="0.00" inputmode="decimal">
+                                        {% if form.amount.errors %}<div class="text-danger small mt-1">{{ form.amount.errors.0 }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-7">
+                                        <label class="form-label fw-semibold">{% trans "Category" %}</label>
+                                        {{ form.category }}
+                                        {% if form.category.errors %}<div class="text-danger small mt-1">{{ form.category.errors.0 }}</div>{% endif %}
+                                    </div>
+                                </div>
+
+
+
+                                <!-- Description -->
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Description" %}</label>
+                                    <input type="text" name="{{ form.description.html_name }}" class="form-control" 
+                                        value="{{ form.description.value|default:'' }}" id="{{ form.description.id_for_label }}" placeholder="{% trans 'What did you spend on?' %}">
+                                    {% if form.description.errors %}<div class="text-danger small mt-1">{{ form.description.errors.0 }}</div>{% endif %}
+                                </div>
+
+                                <!-- Account -->
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Account" %}</label>
+                                    {{ form.account }}
+                                    {% if form.account.errors %}<div class="text-danger small mt-1">{{ form.account.errors.0 }}</div>{% endif %}
+                                </div>
+
+                                <!-- More Options (collapsed by default) -->
+                                <div class="mb-2">
+                                    <a class="btn btn-link text-muted px-0 py-1 small text-decoration-none" data-bs-toggle="collapse" href="#moreOpts-{{ forloop.counter0 }}" role="button" aria-expanded="false">
+                                        <i class="bi bi-sliders2 me-1"></i> {% trans "More options" %}
+                                        <i class="bi bi-chevron-down ms-1" style="font-size: 0.65rem;"></i>
+                                    </a>
+                                    <div class="collapse" id="moreOpts-{{ forloop.counter0 }}">
+                                        <div class="rounded-3 bg-body-tertiary p-3 mt-2">
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-md-6 col-6">
+                                                    <label class="form-label small text-muted">{% trans "Date" %}</label>
+                                                    <input type="date" name="{{ form.date.html_name }}" class="form-control form-control-sm" 
+                                                        value="{{ form.date.value|date:'Y-m-d'|default:form.date.value }}" required id="{{ form.date.id_for_label }}">
+                                                    {% if form.date.errors %}<div class="text-danger small mt-1">{{ form.date.errors.0 }}</div>{% endif %}
+                                                </div>
+                                                <div class="col-md-6 col-6">
+                                                    <label class="form-label small text-muted">{% trans "Currency" %}</label>
+                                                    {{ form.currency }}
+                                                    {% if form.currency.errors %}<div class="text-danger small mt-1">{{ form.currency.errors.0 }}</div>{% endif %}
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-0">
+                                                <label class="form-label small text-muted mb-1">{% trans "Payment Method" %}</label>
+                                                <div class="d-none d-md-block mb-2">
+                                                    {{ form.payment_method }}
+                                                </div>
+                                                <div class="payment-method-selector" data-target-id="{{ form.payment_method.id_for_label }}">
+                                                    <div class="payment-method-item" data-value="Cash">
+                                                        <div class="icon-wrapper"><i class="bi bi-cash-stack"></i></div>
+                                                        <div class="label">{% trans "Cash" %}</div>
+                                                    </div>
+                                                    <div class="payment-method-item" data-value="Credit Card">
+                                                        <div class="icon-wrapper"><i class="bi bi-credit-card"></i></div>
+                                                        <div class="label">{% trans "Credit Card" %}</div>
+                                                    </div>
+                                                    <div class="payment-method-item" data-value="Debit Card">
+                                                        <div class="icon-wrapper"><i class="bi bi-card-checklist"></i></div>
+                                                        <div class="label">{% trans "Debit Card" %}</div>
+                                                    </div>
+                                                    <div class="payment-method-item" data-value="UPI">
+                                                        <div class="icon-wrapper"><i class="bi bi-qr-code-scan"></i></div>
+                                                        <div class="label">{% trans "UPI" %}</div>
+                                                    </div>
+                                                    <div class="payment-method-item" data-value="NetBanking">
+                                                        <div class="icon-wrapper"><i class="bi bi-bank"></i></div>
+                                                        <div class="label">{% trans "NetBanking" %}</div>
+                                                    </div>
+                                                </div>
+                                                {% if form.payment_method.errors %}<div class="text-danger small mt-1">{{ form.payment_method.errors.0 }}</div>{% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Remove Action -->
+                                <div class="remove-item-container mt-3">
+                                    {% if form.instance.pk %}
+                                        <div class="d-none">{{ form.DELETE }}</div>
+                                        <a href="javascript:void(0)" class="remove-item-btn delete-row">
+                                            <i class="bi bi-trash"></i> {% trans "Delete Item" %}
+                                        </a>
+                                    {% else %}
+                                        <a href="javascript:void(0)" class="remove-item-btn remove-row">
+                                            <i class="bi bi-x-circle"></i> {% trans "Remove Item" %}
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2 mt-4 mb-5 pb-5 flex-wrap">
+                            <div>
+                                <button type="button" class="btn btn-outline-primary px-3" id="add-form">
+                                    <i class="bi bi-plus-lg me-1"></i> {% trans "Add" %}
+                                </button>
+                            </div>
+                            
+                            <div class="d-flex gap-2 ms-auto">
+                                <input type="hidden" name="next" value="{{ next_url }}">
+                                <a href="{% if next_url %}{{ next_url }}{% else %}{% url 'expense-list' %}{% endif %}" class="btn btn-outline-secondary px-3 px-md-4">{% trans "Cancel" %}</a>
+                                <button type="submit" class="btn btn-primary px-3 px-md-4">
+                                    <i class="bi bi-check-lg me-1"></i> {% trans "Save" %}
+                                </button>
+                            </div>
+                        </div>
+                    
+                    {% else %}
+                        <div class="form-card form-row mb-4">
+                            {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+                            
+                                <!-- Primary: Amount & Category (hero row) -->
+                                <div class="row g-2 mb-3">
+                                    <div class="col-5">
+                                        <label class="form-label fw-semibold">{% trans "Amount" %}</label>
+                                        <input type="number" name="{{ form.amount.name }}" class="form-control form-control-lg expense-amount-input" 
+                                            value="{{ form.amount.value|default:'' }}" required id="{{ form.amount.id_for_label }}" step="0.01" placeholder="0.00" inputmode="decimal">
+                                        {% if form.amount.errors %}<div class="text-danger small mt-1">{{ form.amount.errors.0 }}</div>{% endif %}
+                                    </div>
+                                    <div class="col-7">
+                                        <label class="form-label fw-semibold">{% trans "Category" %}</label>
+                                        {{ form.category }}
+                                        {% if form.category.errors %}<div class="text-danger small mt-1">{{ form.category.errors.0 }}</div>{% endif %}
+                                    </div>
+                                </div>
+
+
+
+                                <!-- Description -->
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Description" %}</label>
+                                    <input type="text" name="{{ form.description.name }}" class="form-control" 
+                                        value="{{ form.description.value|default:'' }}" id="{{ form.description.id_for_label }}" placeholder="{% trans 'What did you spend on?' %}">
+                                    {% if form.description.errors %}<div class="text-danger small mt-1">{{ form.description.errors.0 }}</div>{% endif %}
+                                </div>
+
+                                <!-- Account -->
+                                <div class="mb-3">
+                                    <label class="form-label">{% trans "Account" %}</label>
+                                    {{ form.account }}
+                                    {% if form.account.errors %}<div class="text-danger small mt-1">{{ form.account.errors.0 }}</div>{% endif %}
+                                </div>
+
+                                <!-- More Options (collapsed for new, expanded for edit) -->
+                                <div class="mb-2">
+                                    <a class="btn btn-link text-muted px-0 py-1 small text-decoration-none" data-bs-toggle="collapse" href="#moreOptsSingle" role="button" aria-expanded="{% if object %}true{% else %}false{% endif %}">
+                                        <i class="bi bi-sliders2 me-1"></i> {% trans "More options" %}
+                                        <i class="bi bi-chevron-down ms-1" style="font-size: 0.65rem;"></i>
+                                    </a>
+                                    <div class="collapse {% if object %}show{% endif %}" id="moreOptsSingle">
+                                        <div class="rounded-3 bg-body-tertiary p-3 mt-2">
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-md-6 col-6">
+                                                    <label class="form-label small text-muted">{% trans "Date" %}</label>
+                                                    <input type="date" name="{{ form.date.name }}" class="form-control form-control-sm" 
+                                                        value="{{ form.date.value|date:'Y-m-d'|default:form.date.value }}" required id="{{ form.date.id_for_label }}">
+                                                    {% if form.date.errors %}<div class="text-danger small mt-1">{{ form.date.errors.0 }}</div>{% endif %}
+                                                </div>
+                                                <div class="col-md-6 col-6">
+                                                    <label class="form-label small text-muted">{% trans "Currency" %}</label>
+                                                    {{ form.currency }}
+                                                    {% if form.currency.errors %}<div class="text-danger small mt-1">{{ form.currency.errors.0 }}</div>{% endif %}
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-0">
+                                                <label class="form-label small text-muted mb-1">{% trans "Payment Method" %}</label>
+                                                <div class="d-none d-md-block mb-2">
+                                                    {{ form.payment_method }}
+                                                </div>
+                                                <div class="payment-method-selector" data-target-id="{{ form.payment_method.id_for_label }}">
+                                                    <div class="payment-method-item" data-value="Cash">
+                                                        <div class="icon-wrapper"><i class="bi bi-cash-stack"></i></div>
+                                                        <div class="label">{% trans "Cash" %}</div>
+                                                    </div>
+                                                    <div class="payment-method-item" data-value="Credit Card">
+                                                        <div class="icon-wrapper"><i class="bi bi-credit-card"></i></div>
+                                                        <div class="label">{% trans "Credit Card" %}</div>
+                                                    </div>
+                                                    <div class="payment-method-item" data-value="Debit Card">
+                                                        <div class="icon-wrapper"><i class="bi bi-card-checklist"></i></div>
+                                                        <div class="label">{% trans "Debit Card" %}</div>
+                                                    </div>
+                                                    <div class="payment-method-item" data-value="UPI">
+                                                        <div class="icon-wrapper"><i class="bi bi-qr-code-scan"></i></div>
+                                                        <div class="label">{% trans "UPI" %}</div>
+                                                    </div>
+                                                    <div class="payment-method-item" data-value="NetBanking">
+                                                        <div class="icon-wrapper"><i class="bi bi-bank"></i></div>
+                                                        <div class="label">{% trans "NetBanking" %}</div>
+                                                    </div>
+                                                </div>
+                                                {% if form.payment_method.errors %}<div class="text-danger small mt-1">{{ form.payment_method.errors.0 }}</div>{% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                        </div>
+
+                        <div class="mt-4 mb-5 pb-5">
+                            <div class="d-flex justify-content-end gap-2">
+                                <input type="hidden" name="next" value="{{ next_url }}">
+                                <a href="{% if next_url %}{{ next_url }}{% else %}{% url 'expense-list' %}{% endif %}" class="btn btn-outline-secondary px-4">{% trans "Cancel" %}</a>
+                                <button type="submit" class="btn btn-primary px-4">
+                                    <i class="bi bi-check-lg me-1"></i> {% trans "Save" %}
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </form>
+            </div> <!-- End manual-form-container -->
+        </div>
+    </div>
+</div>
+    <!-- Add Category Modal -->
+    <div class="modal fade" id="addCategoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title" id="addCategoryModalLabel">{% trans "Add New Category" %}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickAddCategoryForm">
+                    <div class="mb-3">
+                        <label for="id_new_category_name" class="form-label">{% trans "Category Name" %}</label>
+                        <input type="text" class="form-control" id="id_new_category_name" required>
+                    </div>
+                    <div id="categoryError" class="alert alert-danger d-none mt-2"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                <button type="button" class="btn btn-primary" id="saveQuickCategory">{% trans "Save Category" %}</button>
+            </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addBtn = document.getElementById('add-form');
+        const container = document.getElementById('formset-container');
+        const totalForms = document.getElementById('id_form-TOTAL_FORMS');
+
+        // Add Row
+        if (addBtn) {
+            addBtn.addEventListener('click', function() {
+                const clickContainer = document.getElementById('formset-container') || addBtn.closest('form');
+                const currentFormCount = parseInt(totalForms.value);
+                const forms = clickContainer.getElementsByClassName('form-row');
+                
+                // Clone the first row as a template if no rows exist (edge case), 
+                // but typically we clone the last one. If we deleted all, implementation gets tricky, 
+                // so we won't allow deleting the last new row if it's the only one, or we keep a hidden template.
+                // For simplicity, we assume there's always at least one row or we use the last visible one.
+                
+                let templateRow = forms[forms.length - 1];
+                let newForm = templateRow.cloneNode(true);
+                
+                // Regex to replace numbers in name/id
+                const regex = new RegExp(`form-(\\d+)-`, 'g');
+                newForm.innerHTML = newForm.innerHTML.replace(regex, `form-${currentFormCount}-`);
+
+                // Fix collapse IDs for "More options" in new row
+                const oldCollapseId = newForm.querySelector('[id^="moreOpts-"]');
+                if (oldCollapseId) {
+                    const newId = `moreOpts-${currentFormCount}`;
+                    oldCollapseId.id = newId;
+                    const trigger = newForm.querySelector('[href^="#moreOpts-"]');
+                    if (trigger) trigger.setAttribute('href', `#${newId}`);
+                }
+                
+                // Cleanup cloned Searchable Select wrappers (account field)
+                newForm.querySelectorAll('.searchable-select-wrapper').forEach(wrapper => {
+                    const sel = wrapper.querySelector('select.searchable-select');
+                    if (sel) {
+                        sel.style.display = 'none';
+                        delete sel.dataset.searchableInit;
+                        // Remove old wrapper UI (keep the select)
+                        wrapper.querySelectorAll('.searchable-select-btn, .searchable-select-dropdown').forEach(el => el.remove());
+                        // Unwrap: move select out of wrapper, replace wrapper
+                        wrapper.parentNode.insertBefore(sel, wrapper);
+                        wrapper.remove();
+                    }
+                });
+                
+                // Cleanup cloned Multiselect UI from the new row
+                // The clone includes the generated button-group and hidden select. We need to revert to a clean select.
+                const categoryWrapper = newForm.querySelector('select[name$="category"]')?.closest('.mb-3');
+                if (categoryWrapper) {
+                    // Remove the generated btn-group
+                    const btnGroup = categoryWrapper.querySelector('.btn-group');
+                    if (btnGroup) btnGroup.remove();
+                    
+                    // Reset the select element
+                    const select = categoryWrapper.querySelector('select');
+                    if (select) {
+                        select.style.display = ''; // Unhide
+                    }
+                }
+
+                const userCurrency = clickContainer.dataset ? clickContainer.dataset.userCurrency : '';
+                const inputs = newForm.querySelectorAll('input, select');
+                
+                // Get values from template row for sticky fields
+                const templateCategory = templateRow.querySelector('select[name$="-category"]')?.value;
+                const templatePaymentMethod = templateRow.querySelector('select[name$="-payment_method"]')?.value;
+                const templateAccount = templateRow.querySelector('select[name$="-account"]')?.value;
+
+                inputs.forEach(input => {
+                    if (input.name.includes('date')) {
+                        input.value = new Date().toISOString().split('T')[0];
+                    } else if (input.name.includes('currency')) {
+                        input.value = userCurrency;
+                    } else if (input.name.includes('category') && templateCategory) {
+                        input.value = templateCategory;
+                    } else if (input.name.includes('payment_method') && templatePaymentMethod) {
+                        input.value = templatePaymentMethod;
+                    } else if (input.name.includes('account') && templateAccount) {
+                        input.value = templateAccount;
+                    } else {
+                        input.value = '';
+                    }
+                    input.classList.remove('is-invalid');
+                    if(input.type === 'checkbox' || input.type === 'radio') input.checked = false;
+                });
+                
+                // Reset text content of non-inputs if any
+                newForm.querySelectorAll('.text-danger').forEach(el => el.remove());
+
+                // Change delete button to remove button
+                const actionContainer = newForm.querySelector('.remove-item-container');
+                actionContainer.innerHTML = `
+                    <a href="javascript:void(0)" class="remove-item-btn remove-row">
+                        <i class="bi bi-x-circle"></i> {% trans "Remove Item" %}
+                    </a>
+                `;
+
+                clickContainer.appendChild(newForm);
+                totalForms.value = currentFormCount + 1;
+
+                updateRemoveButtonsVisibility();
+
+                // Re-initialize Visual Selectors for the new row
+                if (typeof initVisualSelectors === 'function') {
+                    initVisualSelectors(newForm);
+                }
+
+                // Re-init multiselect for the new row
+                if (categoryWrapper) {
+                    const newSelect = categoryWrapper.querySelector('select');
+                    if (newSelect && $(newSelect).hasClass('django-multi-select')) {
+                         // Check size
+                         const isSmall = $(newSelect).hasClass('form-select-sm') || $(newSelect).hasClass('form-control-sm');
+                         const sizeClass = isSmall ? 'form-select-sm' : '';
+
+                         $(newSelect).multiselect({
+                            buttonWidth: '100%',
+                            nonSelectedText: "{% trans 'Select...' %}",
+                            nSelectedText: " {% trans '- Selected' %}",
+                            allSelectedText: "{% trans 'All Selected' %}",
+                            numberDisplayed: 1,
+                            includeSelectAllOption: true,
+                            enableFiltering: true,
+                            enableCaseInsensitiveFiltering: true,
+                            filterPlaceholder: "{% trans 'Search...' %}",
+                            buttonClass: `form-select multiselect-btn ${sizeClass} text-start`,
+                            inheritClass: false,
+                            templates: {
+                                button: '<button type="button" class="multiselect dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="viewport"><span class="multiselect-selected-text"></span></button>',
+                                option: '<div class="multiselect-option" style="padding: 0.25rem 0.25rem 0.25rem 0.75rem; cursor: pointer;"></div>'
+                            },
+                             onInitialized: function(select, container) {
+                                const button = container.find('button');
+                                button.removeClass('btn btn-default btn-outline-secondary');
+                                button.addClass('form-select multiselect-btn');
+                                if (isSmall) button.addClass('form-select-sm');
+                                
+                                // Fix for options having icons
+                                container.find('input').removeClass('form-select');
+                            }
+                        });
+                    }
+                }
+
+                // Re-init searchable selects for the new row (account dropdown)
+                if (typeof window.initSearchableSelects === 'function') {
+                    window.initSearchableSelects();
+                }
+            });
+        }
+
+        // Delegate click for remove/delete
+        if (container) {
+            container.addEventListener('click', function(e) {
+                // Handle Remove (New Row)
+                if (e.target.closest('.remove-row')) {
+                    const row = e.target.closest('.form-row');
+                    row.remove();
+                    updateFormIndices();
+                    updateRemoveButtonsVisibility();
+                }
+                
+                // Handle Delete (Existing Row)
+                if (e.target.closest('.delete-row')) {
+                    const row = e.target.closest('.form-row');
+                    const deleteInput = row.querySelector('input[name$="-DELETE"]');
+                    if (deleteInput) {
+                        deleteInput.checked = true;
+                        row.style.display = 'none';
+                        // We don't verify fields on hidden rows, but good execution would require bypassing required attrs.
+                        // However, standard browser form submission might block if hidden inputs are required. 
+                        // Django forms usually don't put 'required' on fields if it's conditional, but we rely on browser.
+                        // Let's remove 'required' from inputs in this row to avoid submission errors.
+                        row.querySelectorAll('input, select').forEach(input => {
+                            input.removeAttribute('required');
+                        });
+                    }
+                    updateRemoveButtonsVisibility();
+                }
+            });
+        }
+
+        function updateRemoveButtonsVisibility() {
+            if (!container) return;
+            const rows = Array.from(container.querySelectorAll('.form-row')).filter(row => row.style.display !== 'none');
+            const show = rows.length > 1;
+            rows.forEach(row => {
+                const removeBtn = row.querySelector('.remove-item-container');
+                if (removeBtn) {
+                    removeBtn.style.display = show ? '' : 'none';
+                }
+            });
+        }
+
+        function updateFormIndices() {
+            // Re-index all forms to avoid validation errors with ManagementForm
+            const rows = container.querySelectorAll('.form-row');
+            totalForms.value = rows.length;
+            
+            rows.forEach((row, index) => {
+                // Determine pattern for current row based on its existing content (usually form-N-)
+                // But simpler: just replace ANY form-\d+- with form-index- in the attributes we care about.
+                
+                // Update inputs, selects, textareas
+                const inputs = row.querySelectorAll('input, select, textarea');
+                inputs.forEach(input => {
+                    if (input.name) {
+                        input.name = input.name.replace(/form-\d+-/, `form-${index}-`);
+                    }
+                    if (input.id) {
+                        input.id = input.id.replace(/form-\d+-/, `form-${index}-`);
+                    }
+                });
+
+                // Update labels if any (though we use little labels in this table)
+                row.querySelectorAll('label').forEach(label => {
+                    if (label.htmlFor) {
+                        label.htmlFor = label.htmlFor.replace(/form-\d+-/, `form-${index}-`);
+                    }
+                });
+                
+                // Update hidden DELETE inputs or other specifics if needed
+                // The above generic input handler covers typical django form fields.
+            });
+        }
+
+        updateRemoveButtonsVisibility();
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Dynamic Category Logic ---
+        const modalEl = document.getElementById('addCategoryModal');
+        // Check if modal exists (might not be rendered if not authenticated or other reasons, though unlikely here)
+        if (modalEl) {
+            const modal = new bootstrap.Modal(modalEl);
+            const saveBtn = document.getElementById('saveQuickCategory');
+            const errorAlert = document.getElementById('categoryError');
+            let activeSelectId = null; 
+
+            // Delegation for + buttons (covers both formset and single form)
+            // We attach to document.body to ensure we catch everything, or a common wrapper if available.
+            // Header Add Category Button logic
+            const headerAddBtn = document.getElementById('header-add-category-btn');
+            if (headerAddBtn) {
+                headerAddBtn.addEventListener('click', function() {
+                    activeSelectId = null; // No specific select focused
+                    document.getElementById('quickAddCategoryForm').reset();
+                    errorAlert.classList.add('d-none');
+                    modal.show();
+                    setTimeout(() => document.getElementById('id_new_category_name').focus(), 500);
+                });
+            }
+
+            saveBtn.addEventListener('click', function() {
+                const nameInput = document.getElementById('id_new_category_name');
+                const name = nameInput.value.trim();
+                
+                if (!name) {
+                    errorAlert.textContent = "{% trans 'Category name cannot be empty.' %}";
+                    errorAlert.classList.remove('d-none');
+                    return;
+                }
+
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> {% trans "Saving..." %}';
+
+                fetch("{% url 'category-create-ajax' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ name: name })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const allSelects = document.querySelectorAll('select[name*="category"]'); // Matches 'category' in name
+                        allSelects.forEach(select => {
+                            // Check if option exists
+                            let exists = false;
+                            for (let i = 0; i < select.options.length; i++) {
+                                if (select.options[i].value === data.name) {
+                                    exists = true;
+                                    break;
+                                }
+                            }
+                            if (!exists) {
+                                const option = new Option(data.name, data.name);
+                                select.add(option);
+                            }
+
+                            // Sort options alphabetically
+                            const options = Array.from(select.options);
+                            options.sort((a, b) => a.text.localeCompare(b.text));
+                            select.innerHTML = '';
+                            options.forEach(opt => select.add(opt));
+
+                            // Rebuild bootstrap-multiselect to reflect the new option
+                            if ($(select).hasClass('django-multi-select')) {
+                                $(select).multiselect('rebuild');
+                            }
+                        });
+
+                        // Auto-select the new category in the active/last row
+                        if (activeSelectId) {
+                            const activeEl = document.getElementById(activeSelectId);
+                            if (activeEl) {
+                                activeEl.value = data.name;
+                                if ($(activeEl).hasClass('django-multi-select')) {
+                                    $(activeEl).multiselect('select', data.name);
+                                }
+                            }
+                        } else {
+                            // If no specific row targeted, select in first row's dropdown
+                            const firstSelect = document.querySelector('select[name*="category"]');
+                            if (firstSelect) {
+                                firstSelect.value = data.name;
+                                if ($(firstSelect).hasClass('django-multi-select')) {
+                                    $(firstSelect).multiselect('select', data.name);
+                                }
+                            }
+                        }
+
+                        modal.hide();
+                    } else {
+                        errorAlert.textContent = data.error || "{% trans 'An error occurred.' %}";
+                        errorAlert.classList.remove('d-none');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    errorAlert.textContent = "{% trans 'A network error occurred.' %}";
+                    errorAlert.classList.remove('d-none');
+                })
+                .finally(() => {
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = '{% trans "Save Category" %}';
+                });
+            });
+            
+             document.getElementById('id_new_category_name').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveBtn.click();
+                }
+            });
+        }
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        
+        const container = document.getElementById('formset-container') || document.body;
+        let debounceTimer;
+        container.addEventListener('input', function(e) {
+            // Use endsWith matching to support both formsets (form-0-description) and single forms (description)
+            if (e.target.matches('input') && e.target.name && e.target.name.endsWith('description')) {
+                const descriptionInput = e.target;
+                const description = descriptionInput.value.trim();
+                
+                // Clear any existing timer
+                clearTimeout(debounceTimer);
+                
+                // Set new timer
+                debounceTimer = setTimeout(() => {
+                    // Find corresponding category select
+                    // Usually roughly in same row
+                    const row = descriptionInput.closest('.form-row') || descriptionInput.closest('.mb-3').parentNode; 
+                    // Note: The non-formset view structure is slightly different (<div class="mb-3">...)
+                    
+                    let categorySelect = null;
+                    if (row && row.classList.contains('form-row')) {
+                         categorySelect = row.querySelector('select[name$="-category"]');
+                    } else if (descriptionInput.closest('form')) {
+                         // For non-formset (UpdateView usually), searching globally or sibling
+                         // structure: div.mb-3 > input ... then sibling div.mb-3 > select
+                         const form = descriptionInput.closest('form');
+                         categorySelect = form.querySelector('select[name="category"]');
+                    }
+                    
+                    if (categorySelect) {
+                         // Only predict if no category selected OR current selection is 'Uncategorized'/'Others' (optional refinement)
+                         // But user might want overwrite? Let's stick to "if empty or not set" for now 
+                         // OR just visuals if we don't want to be annoying.
+                         // User requirement: "auto populate".
+                         
+                         // If user manually selected something, maybe we shouldn't change it? 
+                         // Current logic: (!categorySelect.value || categorySelect.value === '') covering empty.
+                         // But <select> often defaults to first option (e.g. 'Food').
+                         // If default is selected, we might want to override.
+                         // Let's assume prediction is helpful.
+                         
+                         if (description.length > 2) {
+                            fetch(`{% url 'predict-category' %}?description=${encodeURIComponent(description)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.category) {
+                                    // Select the option if it exists
+                                    let found = false;
+                                    for (let i = 0; i < categorySelect.options.length; i++) {
+                                        // Compare text or value
+                                        const opt = categorySelect.options[i];
+                                        if (opt.text.toLowerCase() === data.category.toLowerCase() || 
+                                            opt.value.toLowerCase() === data.category.toLowerCase()) {
+                                            categorySelect.selectedIndex = i;
+                                            
+                                            // Synchronize bootstrap-multiselect UI
+                                            if ($(categorySelect).hasClass('django-multi-select')) {
+                                                $(categorySelect).multiselect('select', opt.value);
+                                            }
+                                            
+                                            // Sync frequent category tiles
+                                            categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+                                            
+                                            found = true;
+                                            
+                                            // Visual feedback - Flash glow
+                                            categorySelect.style.transition = "box-shadow 0.3s ease, border-color 0.3s ease";
+                                            categorySelect.classList.add('is-valid'); 
+                                            categorySelect.style.borderColor = "#1D9E75";
+                                            categorySelect.style.boxShadow = "0 0 0 0.25rem rgba(29, 158, 117, 0.25)";
+                                            
+                                            setTimeout(() => {
+                                                categorySelect.classList.remove('is-valid');
+                                                categorySelect.style.borderColor = "";
+                                                categorySelect.style.boxShadow = "";
+                                            }, 2000);
+                                            break;
+                                        }
+                                    }
+                                }
+                            })
+                            .catch(err => console.log('Prediction failed', err));
+                         }
+                    }
+                }, 800); // 800ms debounce
+            }
+        });
+        
+        
+        // Prevent form submission on Enter key in input AND select fields
+        container.addEventListener('keydown', function(e) {
+            // Check if key is Enter
+            if (e.key === 'Enter') {
+                const target = e.target;
+                
+                // Block on Inputs (except hidden/submit/reset/button)
+                const isInput = target.matches('input') && !['submit', 'reset', 'button', 'hidden'].includes(target.type);
+                // Block on Selects
+                const isSelect = target.matches('select');
+                // Block on Textareas (optional, usually Enter in textarea means new line, so maybe NOT block?)
+                // Usually we don't want to submit on Enter in textarea unless it's a chat app.
+                // But for Description/Notes, new line is valid. So let's NOT block textareas.
+                
+                if (isInput || isSelect) {
+                    e.preventDefault();
+                    console.log('Blocked Enter key submission');
+                    
+                    // UX Improvement: Move focus to next field instead?
+                    // For now, just blocking is the priority.
+                    return false;
+                }
+            }
+        });
+
+        // Debugging: Log form submissions to console
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                console.log('Form submitting...', e.submitter);
+            });
+        }
+    });
+</script>
+
+<script>
+    // Generic Selector Logic for Payment Methods and Frequent Categories
+    function initVisualSelectors(container = document) {
+        // Handle Payment Methods and Frequent Categories
+        const selectors = container.querySelectorAll('.payment-method-selector');
+        selectors.forEach(selector => {
+            const targetId = selector.dataset.targetId;
+            let targetSelect = document.getElementById(targetId);
+            
+            // Fallback: If targetId is not found, look for nearest select (useful for cloned rows)
+            if (!targetSelect && targetId) {
+                const parentRow = selector.closest('.form-row');
+                if (parentRow) {
+                    targetSelect = parentRow.querySelector(`[id="${targetId}"]`) || 
+                                   parentRow.querySelector(`[name$="${targetId.split('-').pop()}"]`);
+                }
+            }
+
+            const items = selector.querySelectorAll('.payment-method-item');
+            
+            if (targetSelect) {
+                const updateActive = () => {
+                    const currentVal = targetSelect.value;
+                    items.forEach(item => {
+                        const itemVal = item.dataset.value;
+                        if (itemVal === currentVal) {
+                            item.classList.add('active');
+                        } else {
+                            item.classList.remove('active');
+                        }
+                    });
+                };
+                
+                // Initial update
+                updateActive();
+                
+                // Listen for changes on the underlying select (native + jQuery for multiselect)
+                targetSelect.addEventListener('change', updateActive);
+                if (typeof $ !== 'undefined') {
+                    $(targetSelect).on('change', updateActive);
+                }
+
+                items.forEach(item => {
+                    item.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const val = this.dataset.value;
+                        targetSelect.value = val;
+                        // Trigger change event manually to update UI
+                        targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        
+                        // Handle bootstrap-multiselect if present
+                        if ($(targetSelect).hasClass('django-multi-select')) {
+                            $(targetSelect).multiselect('select', val);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initVisualSelectors();
+        
+        // Auto-expand "More options" if collapsed fields have validation errors
+        document.querySelectorAll('.collapse').forEach(function(panel) {
+            if (panel.id.startsWith('moreOpts') && panel.querySelector('.text-danger')) {
+                panel.classList.add('show');
+                const trigger = document.querySelector('[href="#' + panel.id + '"]');
+                if (trigger) trigger.setAttribute('aria-expanded', 'true');
+            }
+        });
+    });
+</script>
+
+<script>
+    function fillNl(text) {
+        const nlInput = document.getElementById('nl-input');
+        nlInput.value = text;
+        nlInput.dispatchEvent(new Event('input', { bubbles: true }));
+        // Trigger parse manually for chips
+        parseNl(text);
+    }
+
+    let nlDebounceTimer;
+    
+    function parseNl(text) {
+        if (!text || text.trim().length < 5) return;
+
+        const btnParse = document.getElementById('btn-parse');
+        const originalHtml = btnParse.innerHTML;
+        btnParse.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+        btnParse.disabled = true;
+
+        fetch('{% url "parse-expense" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ text: text })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data) {
+                const result = data.data;
+                const firstRow = document.querySelector('.form-row');
+                
+                if (firstRow && result.amount) {
+                    const amountInput = firstRow.querySelector('.expense-amount-input');
+                    const descInput = firstRow.querySelector('input[name$="description"]');
+                    const categorySelect = firstRow.querySelector('select[name$="category"]');
+                    const dateInput = firstRow.querySelector('input[name$="date"]');
+                    const accountSelect = firstRow.querySelector('select[name$="account"]');
+                    const pmSelect = firstRow.querySelector('select[name$="payment_method"]');
+
+                    // Fill fields
+                    if (amountInput && result.amount) {
+                        amountInput.value = result.amount;
+                        amountInput.classList.add('parse-highlight');
+                        setTimeout(() => amountInput.classList.remove('parse-highlight'), 1500);
+                    }
+                    if (descInput && result.description) descInput.value = result.description;
+                    if (dateInput && result.date) {
+                        dateInput.value = result.date;
+                        dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    if (categorySelect && result.category) {
+                        for (let i = 0; i < categorySelect.options.length; i++) {
+                            const optText = categorySelect.options[i].text.toLowerCase();
+                            const parsedCat = result.category.toLowerCase();
+                            if (optText === parsedCat || optText.includes(parsedCat)) {
+                                categorySelect.selectedIndex = i;
+                                categorySelect.dispatchEvent(new Event('change', { bubbles: true }));
+                                
+                                // Sync multiselect if present
+                                if (typeof $ !== 'undefined' && $(categorySelect).hasClass('django-multi-select')) {
+                                    $(categorySelect).multiselect('select', categorySelect.options[i].value);
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    if (accountSelect && result.account) {
+                        for (let i = 0; i < accountSelect.options.length; i++) {
+                            if (accountSelect.options[i].text.toLowerCase().includes(result.account.toLowerCase())) {
+                                accountSelect.selectedIndex = i;
+                                accountSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                                break;
+                            }
+                        }
+                    }
+
+                    if (pmSelect && result.payment_method) {
+                        for (let i = 0; i < pmSelect.options.length; i++) {
+                            if (pmSelect.options[i].text.toLowerCase().includes(result.payment_method.toLowerCase())) {
+                                pmSelect.selectedIndex = i;
+                                pmSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        })
+        .finally(() => {
+            btnParse.innerHTML = originalHtml;
+            btnParse.disabled = false;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const nlInput = document.getElementById('nl-input');
+        if (nlInput) {
+            nlInput.addEventListener('input', function() {
+                clearTimeout(nlDebounceTimer);
+                nlDebounceTimer = setTimeout(() => {
+                    parseNl(nlInput.value);
+                }, 1200);
+            });
+
+            nlInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    clearTimeout(nlDebounceTimer);
+                    parseNl(nlInput.value);
+                }
+            });
+
+            document.getElementById('btn-parse').addEventListener('click', () => {
+                clearTimeout(nlDebounceTimer);
+                parseNl(nlInput.value);
+            });
+
+            // Auto-focus for immediate entry (delay slightly for mobile browsers)
+            setTimeout(() => {
+                nlInput.focus();
+            }, 100);
+        }
+    });
+</script>
+
+{% endblock %}
+```

@@ -1,0 +1,247 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block content %}
+<div class="row justify-content-center fade-in">
+    <div class="col-md-8">
+<div class="card shadow-lg border-0 fade-in">
+    <div class="card-header bg-transparent py-3">
+        <h2 class="h4 mb-0 fw-bold">{% if form.instance.pk %}{% trans "Edit" %}{% else %}{% trans "Add" %}{% endif %} {% trans "Subscription" %}</h2>
+    </div>
+
+    <div class="card-body">
+        <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+            
+            {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                    {{ error }}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="row g-3">
+                <!-- Row 1: Type and Frequency -->
+                <div class="col-6">
+                    <label class="form-label">{% trans "Type" %}</label>
+                    {{ form.transaction_type }}
+                    {% if form.transaction_type.errors %}
+                        <div class="text-danger small">{{ form.transaction_type.errors|first }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-6">
+                    <label class="form-label">{% trans "Frequency" %}</label>
+                    {{ form.frequency }}
+                    {% if form.frequency.errors %}
+                        <div class="text-danger small">{{ form.frequency.errors|first }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 2: Amount and Currency -->
+                <div class="col-6">
+                    <label class="form-label">{% trans "Amount" %}</label>
+                    {{ form.amount }}
+                    {% if form.amount.errors %}
+                        <div class="text-danger small">{{ form.amount.errors|first }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-6">
+                    <label class="form-label">{% trans "Currency" %}</label>
+                    {{ form.currency }}
+                    {% if form.currency.errors %}
+                        <div class="text-danger small">{{ form.currency.errors|first }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 3: Start Date and Account -->
+                <div class="col-6">
+                    <label class="form-label">{% trans "Start Date" %}</label>
+                    <input type="date" name="{{ form.start_date.name }}" class="form-control" 
+                        value="{{ form.start_date.value|date:'Y-m-d'|default:'' }}{% if not form.start_date.value %}{% now 'Y-m-d' %}{% endif %}" required id="{{ form.start_date.id_for_label }}">
+                    {% if form.start_date.errors %}
+                        <div class="text-danger small">{{ form.start_date.errors|first }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-6" id="accountGroup">
+                    <label class="form-label">{% trans "Account" %}</label>
+                    {{ form.account }}
+                    {% if form.account.errors %}
+                        <div class="text-danger small">{{ form.account.errors|first }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Transfer Account Fields -->
+                <div class="col-6" id="fromAccountGroup" style="display: none;">
+                    <label class="form-label">{% trans "From Account" %}</label>
+                    {{ form.from_account }}
+                    {% if form.from_account.errors %}
+                        <div class="text-danger small">{{ form.from_account.errors|first }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-6" id="toAccountGroup" style="display: none;">
+                    <label class="form-label">{% trans "To Account" %}</label>
+                    {{ form.to_account }}
+                    {% if form.to_account.errors %}
+                        <div class="text-danger small">{{ form.to_account.errors|first }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 4: Category / Source / Payment Method -->
+                <div class="col-6" id="categoryGroup">
+                    <label class="form-label">{% trans "Category" %}</label>
+                    {{ form.category }}
+                    {% if form.category.errors %}
+                        <div class="text-danger small">{{ form.category.errors|first }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-6" id="sourceGroup" style="display: none;">
+                    <label class="form-label">{% trans "Source (For Income)" %}</label>
+                    {{ form.source }}
+                    {% if form.source.errors %}
+                        <div class="text-danger small">{{ form.source.errors|first }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-12" id="paymentMethodGroup">
+                    <label class="form-label">{% trans "Payment Source Method" %}</label>
+                    <div class="d-none">
+                        {{ form.payment_method }}
+                    </div>
+                    <div class="payment-method-selector horizontal" data-target-id="{{ form.payment_method.id_for_label }}">
+                        <div class="payment-method-item" data-value="Cash">
+                            <div class="icon-wrapper"><i class="bi bi-cash-stack"></i></div>
+                            <div class="label">{% trans "Cash" %}</div>
+                        </div>
+                        <div class="payment-method-item" data-value="Credit Card">
+                            <div class="icon-wrapper"><i class="bi bi-credit-card"></i></div>
+                            <div class="label">{% trans "Credit Card" %}</div>
+                        </div>
+                        <div class="payment-method-item" data-value="Debit Card">
+                            <div class="icon-wrapper"><i class="bi bi-card-checklist"></i></div>
+                            <div class="label">{% trans "Debit Card" %}</div>
+                        </div>
+                        <div class="payment-method-item" data-value="UPI">
+                            <div class="icon-wrapper"><i class="bi bi-qr-code-scan"></i></div>
+                            <div class="label">{% trans "UPI" %}</div>
+                        </div>
+                        <div class="payment-method-item" data-value="NetBanking">
+                            <div class="icon-wrapper"><i class="bi bi-bank"></i></div>
+                            <div class="label">{% trans "NetBanking" %}</div>
+                        </div>
+                    </div>
+                    {% if form.payment_method.errors %}
+                        <div class="text-danger small mt-1">{{ form.payment_method.errors|first }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Row 5: Description -->
+                <div class="col-12">
+                    <label class="form-label">{% trans "Description" %}</label>
+                    {{ form.description }}
+                    {% if form.description.errors %}
+                        <div class="text-danger small">{{ form.description.errors|first }}</div>
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label">{% trans "Active" %}</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex justify-content-end gap-2">
+                <input type="hidden" name="next" value="{{ next_url }}">
+                <a href="{% if next_url %}{{ next_url }}{% else %}{% url 'recurring-list' %}{% endif %}" class="btn btn-outline-secondary px-4">{% trans "Cancel" %}</a>
+
+                <button type="submit" class="btn btn-primary px-4">
+                    <i class="bi bi-check-lg me-1"></i> {% trans "Save" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function toggleFields() {
+        const typeSelect = document.querySelector('[name="transaction_type"]');
+        const categoryGroup = document.getElementById('categoryGroup');
+        const sourceGroup = document.getElementById('sourceGroup');
+        const paymentMethodGroup = document.getElementById('paymentMethodGroup');
+        const accountGroup = document.getElementById('accountGroup');
+        const fromAccountGroup = document.getElementById('fromAccountGroup');
+        const toAccountGroup = document.getElementById('toAccountGroup');
+
+        if (typeSelect.value === 'EXPENSE') {
+            categoryGroup.style.display = 'block';
+            paymentMethodGroup.style.display = 'block';
+            sourceGroup.style.display = 'none';
+            accountGroup.style.display = 'block';
+            fromAccountGroup.style.display = 'none';
+            toAccountGroup.style.display = 'none';
+        } else if (typeSelect.value === 'TRANSFER') {
+            categoryGroup.style.display = 'none';
+            paymentMethodGroup.style.display = 'none';
+            sourceGroup.style.display = 'none';
+            accountGroup.style.display = 'none';
+            fromAccountGroup.style.display = 'block';
+            toAccountGroup.style.display = 'block';
+        } else {
+            categoryGroup.style.display = 'none';
+            paymentMethodGroup.style.display = 'none';
+            sourceGroup.style.display = 'block';
+            accountGroup.style.display = 'block';
+            fromAccountGroup.style.display = 'none';
+            toAccountGroup.style.display = 'none';
+        }
+    }
+
+    // Run on load and on type change
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleFields();
+        document.querySelector('[name="transaction_type"]').addEventListener('change', toggleFields);
+    });
+</script>
+
+<script>
+    // Payment Method Visual Selector Logic
+    document.addEventListener('DOMContentLoaded', function() {
+        const selectors = document.querySelectorAll('.payment-method-selector');
+        
+        selectors.forEach(selector => {
+            const targetId = selector.dataset.targetId;
+            const targetSelect = document.getElementById(targetId);
+            const items = selector.querySelectorAll('.payment-method-item');
+            
+            // Set initial active state
+            if (targetSelect) {
+                const currentValue = targetSelect.value;
+                items.forEach(item => {
+                    if (item.dataset.value === currentValue) {
+                        item.classList.add('active');
+                    }
+                });
+            }
+            
+            items.forEach(item => {
+                item.addEventListener('click', function() {
+                    const value = this.dataset.value;
+                    
+                    // Update visual state
+                    items.forEach(i => i.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update hidden select
+                    if (targetSelect) {
+                        targetSelect.value = value;
+                        // Trigger change event for any listeners
+                        targetSelect.dispatchEvent(new Event('change'));
+                    }
+                });
+            });
+        });
+    });
+</script>
+    </div>
+</div>
+{% endblock %}
