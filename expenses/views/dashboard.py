@@ -653,11 +653,11 @@ def home_view(request):
             
             # POWER INSIGHT: Granular and Actionable
             power_insight = format_html(
-                _("You spent <b>{pct}%</b> of your expenses on <b>{cat}</b> this month. If you reduce it by 20%, you could save <b>{sym}{savings}</b>."),
-                pct=top_cat_pct,
-                cat=_(top_cat),
-                sym=currency_symbol,
-                savings=compact_amount(potential_savings, currency_symbol)
+                _('You spent <b>{}%</b> of your expenses on <b>{}</b> this month. If you reduce it by 20%, you could save <b>{}{}</b>.'),
+                top_cat_pct,
+                _(top_cat),
+                currency_symbol,
+                compact_amount(potential_savings, currency_symbol)
             )
             
             # Update viral insight with this more powerful one
@@ -677,7 +677,6 @@ def home_view(request):
                 if m_cat_total > 0:
                     cat_3_month_total += m_cat_total
                     cat_months_counted += 1
-            
             if cat_months_counted > 0:
                 cat_avg = float(cat_3_month_total) / cat_months_counted
                 if float(top_amount) > cat_avg * 1.1: # 10% higher
@@ -790,10 +789,10 @@ def home_view(request):
 
     over_budget_cats = [c for c in category_limits if c['used_percent'] is not None and c['used_percent'] > 100]
     near_budget_cats = [c for c in category_limits if c['used_percent'] is not None and 90 <= c['used_percent'] <= 100]
-    
+
     # Check savings rate for "Softener" context
     savings_rate_alert = (savings / total_income * 100) if total_income > 0 else 0
-    
+
     if over_budget_cats:
         if len(over_budget_cats) == 1:
             cat = over_budget_cats[0]
@@ -955,7 +954,7 @@ def home_view(request):
             return f"{amount:.0f}"
             
         proj_str = format_indian_lakhs(projected_savings)
-        proj_bold = mark_safe(f"<b>{currency_symbol}{proj_str}</b>")
+        proj_bold = format_html("<b>{}{}</b>", currency_symbol, proj_str)
         insights.append({
             'type': 'success', 
             'icon': 'graph-up-arrow',
@@ -1026,12 +1025,18 @@ def home_view(request):
             'type': 'warning',
             'icon': 'calendar-event-fill',
             'title': _('Upcoming Payment'),
-            'message': format_html(_("Your recurring payment for <b>{}</b> is due {}. ({})"), payment.description, when, f"{currency_symbol}{compact_amount(payment.amount, currency_symbol)}"),
+            'message': format_html(
+                _("Your recurring payment for <b>{}</b> is due {}. ({}{})"),
+                payment.description,
+                when,
+                currency_symbol,
+                compact_amount(payment.amount, currency_symbol)
+            ),
             'allow_share': False
         })
         
     smart_insights = smart_insights[:3] # Limit to 3 (Layer 3 rule)
-    
+
     # Layer 5: Monthly Story Generation
     if len(selected_months) == 1 and len(selected_years) == 1:
         story_month_name = calendar.month_name[int(selected_months[0])]
@@ -1043,12 +1048,12 @@ def home_view(request):
     total_wealth_contribution = max(0, savings)
     future_growth_pct = round(float(total_wealth_contribution) / float(total_income) * 100) if total_income > 0 else 0
     lifestyle_pct = round(float(total_expenses) / float(total_income) * 100) if total_income > 0 else 0
-    
+
     income_bold = mark_safe(f"<b>{currency_symbol}{compact_amount(total_income, currency_symbol)}</b>")
     lifestyle_bold = mark_safe(f"<b>{currency_symbol}{compact_amount(total_expenses, currency_symbol)}</b>")
     invest_bold = mark_safe(f"<b>{currency_symbol}{compact_amount(total_investments, currency_symbol)}</b>")
     future_total_bold = mark_safe(f"<b>{currency_symbol}{compact_amount(total_wealth_contribution, currency_symbol)}</b>")
-    
+
     # Narrative Structure
     monthly_story = format_html(
         _("In {month}, you earned {income}. You spent {lifestyle} on lifestyle, and invested {invest} toward future wealth."),
@@ -1066,7 +1071,7 @@ def home_view(request):
             lifestyle=lifestyle_bold,
             life_pct=lifestyle_pct
         )
-    
+
     if projected_savings > 0:
         proj_bold = mark_safe(f"<b>{currency_symbol}{compact_amount(projected_savings, currency_symbol)}</b>")
         monthly_story += format_html(
@@ -1092,7 +1097,7 @@ def home_view(request):
 
     # --- Smart Insights Bullets (New Card) ---
     smart_bullet_insights = []
-    
+
     # 0. Power AI Insight (Top Priority)
     if total_income > 0 and total_expenses > 0 and top_5_categories:
         top_cat = top_5_categories[0]['category']
@@ -1105,14 +1110,14 @@ def home_view(request):
             pct=top_cat_pct,
             cat=_(top_cat),
             sym=currency_symbol,
-                savings=compact_amount(potential_savings, currency_symbol)
+            savings=compact_amount(potential_savings, currency_symbol)
         )
         smart_bullet_insights.append({
             'text': power_insight_text,
             'icon': 'bi-robot',
             'theme': 'primary'
         })
-    
+
     # 1. Highest Spending Category
     if top_category:
         cat_url = f"{reverse('expense-list')}?category={top_category}"
@@ -1789,7 +1794,7 @@ def home_view(request):
     ).values('description', 'amount').annotate(
         count=Count('id')
     ).filter(count__gte=3).exclude(description__in=['', 'Miscellaneous', 'Other']).order_by('-count')
-    
+
     top_repeat = None
     if repeating_expenses.exists():
         # Optimization: Fetch active recurring expenses for the user to compare
@@ -1808,8 +1813,8 @@ def home_view(request):
         add_nudge_alt(
             _('Automate Repeat Bills?'),
             format_html(
-                _('Looks like {desc} repeats monthly. Want to transition it to a recurring transaction?'),
-                desc=top_repeat['description']
+                _('Looks like {} repeats monthly. Want to transition it to a recurring transaction?'),
+                top_repeat['description']
             ),
             n_type='ANALYTICS',
             link=recurring_link,
