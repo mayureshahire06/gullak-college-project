@@ -37,11 +37,11 @@ The application provides an intuitive interface for monitoring expenses, managin
 
 ### Backend
 
-* Node.js / Express.js *(Update according to your project)*
+* Pythone*
 
 ### Database
 
-* MongoDB / MySQL *(Update according to your project)*
+* SQL Lite*
 
 ### Tools
 
@@ -93,19 +93,7 @@ npm start
 
 ---
 
-## 📸 Screenshots
 
-Add screenshots of your application here.
-
-### Dashboard
-
-![Dashboard Screenshot](screenshots/dashboard.png)
-
-### Expense Tracker
-
-![Expense Tracker Screenshot](screenshots/expenses.png)
-
----
 
 ## 🎯 Learning Outcomes
 
@@ -122,7 +110,7 @@ Through this project, we gained experience in:
 
 ## 👨‍💻 Author
 
-**Mayur Shah Ahire**
+**Mayur  Ahire**
 
 * GitHub: https://github.com/mayureshahire06
 * LinkedIn: Add your LinkedIn profile
