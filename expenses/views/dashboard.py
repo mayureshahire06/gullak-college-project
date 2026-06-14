@@ -539,11 +539,11 @@ def home_view(request):
             
         except ValueError:
             pass
-    
+
     # --- Emotional Feedback / Insights Logic (Enhanced) ---
-    
+
     insights = []
-    
+
     # helper for streaks
     def get_monthly_savings_status(u, y, m):
         inc = Income.objects.filter(user=u, date__year=y, date__month=m).aggregate(Sum('base_amount'))['base_amount__sum'] or 0
@@ -551,11 +551,7 @@ def home_view(request):
         return inc > exp
 
     # Construct date params for deep linking
-    date_params = ""
-    for y in selected_years:
-        date_params += f"&year={y}"
-    for m in selected_months:
-        date_params += f"&month={m}"
+    date_params = "".join([f"&year={y}" for y in selected_years] + [f"&month={m}" for m in selected_months])
 
     # helper for category links
     def link_cats(cats):
@@ -578,7 +574,6 @@ def home_view(request):
             # Calculate past month/year
             y = now.year
             m = now.month - i
-            while m < 1:
                 m += 12
                 y -= 1
             

@@ -797,11 +797,11 @@ def home_view(request):
             
         except ValueError:
             pass
-    
+
     # --- Emotional Feedback / Insights Logic (Enhanced) ---
-    
+
     insights = []
-    
+
     # helper for streaks
     def get_monthly_savings_status(u, y, m):
         inc = Income.objects.filter(user=u, date__year=y, date__month=m).aggregate(Sum('base_amount'))['base_amount__sum'] or 0
@@ -809,11 +809,7 @@ def home_view(request):
         return inc > exp
 
     # Construct date params for deep linking
-    date_params = ""
-    for y in selected_years:
-        date_params += f"&year={y}"
-    for m in selected_months:
-        date_params += f"&month={m}"
+    date_params = "".join(f"&year={y}" for y in selected_years) + "".join(f"&month={m}" for m in selected_months)
 
     # helper for category links
     def link_cats(cats):
@@ -832,7 +828,7 @@ def home_view(request):
     now = datetime.now()
     if not request.GET or (len(selected_months) == 1 and str(now.month) in selected_months and str(now.year) in selected_years):
          is_current_month_view = True
-    
+
     if is_current_month_view and total_expenses > 0:
         # Calculate last 3 months average
         last_3_months_total = 0
