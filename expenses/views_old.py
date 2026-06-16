@@ -874,19 +874,19 @@ def home_view(request):
 
     over_budget_cats = [c['name'] for c in category_limits if c['used_percent'] is not None and c['used_percent'] > 100]
     near_budget_cats = [c['name'] for c in category_limits if c['used_percent'] is not None and 90 <= c['used_percent'] <= 100]
-    
+
     # Check savings rate for "Softener" context
     savings_rate = (savings / total_income * 100) if total_income > 0 else 0
-    
+
     if over_budget_cats:
         cats_str = link_cats(over_budget_cats)
         
         if savings_rate >= 20:
             # Contextualized Warning for High Savers
-            msg = format_html(_("Even strong months have leaks. You crossed limits in {cats_str} — catching this keeps you on track."), cats_str=cats_str)
+            msg = format_html(_("Even strong months have leaks. You crossed limits in {} — catching this keeps you on track."), cats_str)
         else:
             # Standard Coaching Warning - "Warning" type (Yellow) instead of Danger (Red) for empathy
-            msg = format_html(_("⚠️ Budget crossed in {cats_str} — let’s rebalance to stay safe."), cats_str=cats_str)
+            msg = format_html(_("⚠️ Budget crossed in {} — let’s rebalance to stay safe."), cats_str)
 
         insights.append({
             'type': 'warning', # Changed from danger
@@ -901,7 +901,7 @@ def home_view(request):
             'type': 'warning',
             'icon': 'exclamation-triangle-fill',
             'title': _('Approaching Limit'),
-            'message': format_html(_("Heads up! You're close to overspending on {cats_str}."), cats_str=cats_str),
+            'message': format_html(_("Heads up! You're close to overspending on {}."), cats_str),
             'allow_share': False
         })
 
@@ -931,7 +931,7 @@ def home_view(request):
                 
                 if top_savers:
                     cats_link = link_cats(top_savers)
-                    msg = format_html(_("{msg_text} You spent less on {cats_link} — that's where the magic happened."), msg_text=msg_text, cats_link=cats_link)
+                    msg = format_html(_("{} You spent less on {} — that's where the magic happened."), msg_text, cats_link)
                 else:
                     msg = msg_text
 
@@ -961,7 +961,7 @@ def home_view(request):
                  
                  if top_savers:
                      cats_link = link_cats(top_savers)
-                     msg = format_html(_("{msg_text} {cats_link} saw the biggest drops."), msg_text=msg_text, cats_link=cats_link)
+                     msg = format_html(_("{} {} saw the biggest drops."), msg_text, cats_link)
                  else:
                      msg = msg_text
                  
